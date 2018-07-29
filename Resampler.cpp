@@ -20,6 +20,18 @@ void Resampler::process(
 		){
 	#pragma HLS pipeline
 	
+	// Put samples into the buffer.
+	//
+	ap_int<14> localSampleBuffer[6];
+	//
+	localSampleBuffer[0] = m_sampleBuffer[0];
+	for (int k = 6-1; k > 0; k--){
+		#pragma HLS unroll
+		localSampleBuffer[k] = m_sampleBuffer[k];
+		m_sampleBuffer[k] = m_sampleBuffer[k-1];
+	}
+	m_sampleBuffer[0] = DataIn;
+	
 	ap_uint<c_nrOfBitsResampleFactorFractional> curSamplePos;
 	
 	// Each cycle is c_stepWidth steps.
@@ -51,26 +63,19 @@ void Resampler::process(
 	
 	// Combine coefficients and samples.
 	//
-	ap_int<c_nrOfBitsCoefficientResolution + 14> addend1 = coefficientP2 * m_sampleBuffer[0];
-	ap_int<c_nrOfBitsCoefficientResolution + 14> addend2 = coefficientP1 * m_sampleBuffer[1];
-	ap_int<c_nrOfBitsCoefficientResolution + 14> addend3 = coefficientP0 * m_sampleBuffer[2];
-	ap_int<c_nrOfBitsCoefficientResolution + 14> addend4 = coefficientN0 * m_sampleBuffer[3];
-	ap_int<c_nrOfBitsCoefficientResolution + 14> addend5 = coefficientN1 * m_sampleBuffer[4];
-	ap_int<c_nrOfBitsCoefficientResolution + 14> addend6 = coefficientN2 * m_sampleBuffer[5];
-	std::cout << "sampleBuffer[0]: " << m_sampleBuffer[0] <<  ", sampleBuffer[1]: " << m_sampleBuffer[1] <<  ", sampleBuffer[2]: " << m_sampleBuffer[2] <<  ", sampleBuffer[3]: " << m_sampleBuffer[3] << ", sampleBuffer[4]: " << m_sampleBuffer[4] <<  ", sampleBuffer[5]: " << m_sampleBuffer[5] << std::endl;
+	ap_int<c_nrOfBitsCoefficientResolution + 14> addend1 = coefficientP2 * localSampleBuffer[0];
+	ap_int<c_nrOfBitsCoefficientResolution + 14> addend2 = coefficientP1 * localSampleBuffer[1];
+	ap_int<c_nrOfBitsCoefficientResolution + 14> addend3 = coefficientP0 * localSampleBuffer[2];
+	ap_int<c_nrOfBitsCoefficientResolution + 14> addend4 = coefficientN0 * localSampleBuffer[3];
+	ap_int<c_nrOfBitsCoefficientResolution + 14> addend5 = coefficientN1 * localSampleBuffer[4];
+	ap_int<c_nrOfBitsCoefficientResolution + 14> addend6 = coefficientN2 * localSampleBuffer[5];
+	std::cout << "sampleBuffer[0]: " << localSampleBuffer[0] <<  ", sampleBuffer[1]: " << localSampleBuffer[1] <<  ", sampleBuffer[2]: " << localSampleBuffer[2] <<  ", sampleBuffer[3]: " << localSampleBuffer[3] << ", sampleBuffer[4]: " << localSampleBuffer[4] <<  ", sampleBuffer[5]: " << localSampleBuffer[5] << std::endl;
 	
 	// Generate output.
 	//
 	if (enableOut) {
 		DataOut = (addend1 + addend2 + addend3 + addend4 + addend5 + addend6) >> (c_nrOfBitsCoefficientResolution - 1);
 	}
-	
-	// Put samples into the buffer.
-	//
-	for (int k = 6-1; k > 0; k--){
-		m_sampleBuffer[k] = m_sampleBuffer[k-1];
-	}
-	m_sampleBuffer[0] = DataIn;
 }
 
 
